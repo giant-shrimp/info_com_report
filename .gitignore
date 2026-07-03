@@ -1,0 +1,9 @@
+# Compiled C binaries
+data_compression/c/*_c
+
+#pythonのキャッシュ
+data_compression/python/**/__pycache__/
+
+# Output directories for generated files
+data_compression/c/output/
+data_compression/python/output/
