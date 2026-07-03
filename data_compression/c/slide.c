@@ -1,197 +1,261 @@
 /***********************************************************
-	slide.c -- LZ–@
+        slide.c -- LZæ³•
 ***********************************************************/
-/* ƒXƒ‰ƒCƒh«‘–@ */
+/* ã‚¹ãƒ©ã‚¤ãƒ‰è¾æ›¸æ³• */
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#define N   4096  /* ŠÂóƒoƒbƒtƒ@‚Ì‘å‚«‚³ */
-#define F     18  /* Å’·ˆê’v’· */
+#define N 4096 /* ç’°çŠ¶ãƒãƒƒãƒ•ã‚¡ã®å¤§ãã• */
+#define F 18   /* æœ€é•·ä¸€è‡´é•· */
 
-FILE *infile, *outfile;      /* “ü—Íƒtƒ@ƒCƒ‹, o—Íƒtƒ@ƒCƒ‹ */
-unsigned long outcount = 0;  /* o—ÍƒoƒCƒg”ƒJƒEƒ“ƒ^ */
-unsigned char text[N+F-1]; /* ƒeƒLƒXƒg—pƒoƒbƒtƒ@ */
-int dad[N+1], lson[N+1], rson[N+257];  /* –Ø */
-#define NIL    N  /* –Ø‚Ì––’[ */
+FILE *infile, *outfile;                     /* å…¥åŠ›ãƒ•ã‚¡ã‚¤ãƒ«, å‡ºåŠ›ãƒ•ã‚¡ã‚¤ãƒ« */
+unsigned long outcount = 0;                 /* å‡ºåŠ›ãƒã‚¤ãƒˆæ•°ã‚«ã‚¦ãƒ³ã‚¿ */
+unsigned char text[N + F - 1];              /* ãƒ†ã‚­ã‚¹ãƒˆç”¨ãƒãƒƒãƒ•ã‚¡ */
+int dad[N + 1], lson[N + 1], rson[N + 257]; /* æœ¨ */
+#define NIL N                               /* æœ¨ã®æœ«ç«¯ */
 
-void error(char *message)  /* ƒƒbƒZ[ƒW‚ğ•\¦‚µI—¹ */
+void error(char *message) /* ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’è¡¨ç¤ºã—çµ‚äº† */
 {
-	fprintf(stderr, "\n%s\n", message);
-	exit(EXIT_FAILURE);
+  fprintf(stderr, "\n%s\n", message);
+  exit(EXIT_FAILURE);
 }
 
-void init_tree(void)  /* –Ø‚Ì‰Šú‰» */
+void init_tree(void) /* æœ¨ã®åˆæœŸåŒ– */
 {
-	int i;
+  int i;
 
-	for (i = N + 1; i <= N + 256; i++) rson[i] = NIL;
-	for (i = 0; i < N; i++) dad[i] = NIL;
+  for (i = N + 1; i <= N + 256; i++)
+    rson[i] = NIL;
+  for (i = 0; i < N; i++)
+    dad[i] = NIL;
 }
 
-int matchpos, matchlen;  /* Å’·ˆê’vˆÊ’u, ˆê’v’· */
+int matchpos, matchlen; /* æœ€é•·ä¸€è‡´ä½ç½®, ä¸€è‡´é•· */
 
-void insert_node(int r)  /* ß r ‚ğ–Ø‚É‘}“ü */
+void insert_node(int r) /* ç¯€ r ã‚’æœ¨ã«æŒ¿å…¥ */
 {
-	int i, p, cmp;
-	unsigned char *key;
+  int i, p, cmp;
+  unsigned char *key;
 
-	cmp = 1;  key = &text[r];  p = N + 1 + key[0];
-	rson[r] = lson[r] = NIL;  matchlen = 0;
-	for ( ; ; ) {
-		if (cmp >= 0) {
-			if (rson[p] != NIL) p = rson[p];
-			else {  rson[p] = r;  dad[r] = p;  return;  }
-		} else {
-			if (lson[p] != NIL) p = lson[p];
-			else {  lson[p] = r;  dad[r] = p;  return;  }
-		}
-		for (i = 1; i < F; i++)
-			if ((cmp = key[i] - text[p + i]) != 0)  break;
-		if (i > matchlen) {
-			matchpos = p;
-			if ((matchlen = i) >= F)  break;
-		}
-	}
-	dad[r] = dad[p];  lson[r] = lson[p];  rson[r] = rson[p];
-	dad[lson[p]] = r;  dad[rson[p]] = r;
-	if (rson[dad[p]] == p) rson[dad[p]] = r;
-	else                   lson[dad[p]] = r;
-	dad[p] = NIL;  /* p ‚ğŠO‚· */
+  cmp = 1;
+  key = &text[r];
+  p = N + 1 + key[0];
+  rson[r] = lson[r] = NIL;
+  matchlen = 0;
+  for (;;) {
+    if (cmp >= 0) {
+      if (rson[p] != NIL)
+        p = rson[p];
+      else {
+        rson[p] = r;
+        dad[r] = p;
+        return;
+      }
+    } else {
+      if (lson[p] != NIL)
+        p = lson[p];
+      else {
+        lson[p] = r;
+        dad[r] = p;
+        return;
+      }
+    }
+    for (i = 1; i < F; i++)
+      if ((cmp = key[i] - text[p + i]) != 0)
+        break;
+    if (i > matchlen) {
+      matchpos = p;
+      if ((matchlen = i) >= F)
+        break;
+    }
+  }
+  dad[r] = dad[p];
+  lson[r] = lson[p];
+  rson[r] = rson[p];
+  dad[lson[p]] = r;
+  dad[rson[p]] = r;
+  if (rson[dad[p]] == p)
+    rson[dad[p]] = r;
+  else
+    lson[dad[p]] = r;
+  dad[p] = NIL; /* p ã‚’å¤–ã™ */
 }
 
-void delete_node(int p)  /* ß p ‚ğ–Ø‚©‚çÁ‚· */
+void delete_node(int p) /* ç¯€ p ã‚’æœ¨ã‹ã‚‰æ¶ˆã™ */
 {
-	int  q;
+  int q;
 
-	if (dad[p] == NIL) return;  /* Œ©‚Â‚©‚ç‚È‚¢ */
-	if (rson[p] == NIL) q = lson[p];
-	else if (lson[p] == NIL) q = rson[p];
-	else {
-		q = lson[p];
-		if (rson[q] != NIL) {
-			do {  q = rson[q];  } while (rson[q] != NIL);
-			rson[dad[q]] = lson[q];  dad[lson[q]] = dad[q];
-			lson[q] = lson[p];  dad[lson[p]] = q;
-		}
-		rson[q] = rson[p];  dad[rson[p]] = q;
-	}
-	dad[q] = dad[p];
-	if (rson[dad[p]] == p) rson[dad[p]] = q;
-	else                   lson[dad[p]] = q;
-	dad[p] = NIL;
+  if (dad[p] == NIL)
+    return; /* è¦‹ã¤ã‹ã‚‰ãªã„ */
+  if (rson[p] == NIL)
+    q = lson[p];
+  else if (lson[p] == NIL)
+    q = rson[p];
+  else {
+    q = lson[p];
+    if (rson[q] != NIL) {
+      do {
+        q = rson[q];
+      } while (rson[q] != NIL);
+      rson[dad[q]] = lson[q];
+      dad[lson[q]] = dad[q];
+      lson[q] = lson[p];
+      dad[lson[p]] = q;
+    }
+    rson[q] = rson[p];
+    dad[rson[p]] = q;
+  }
+  dad[q] = dad[p];
+  if (rson[dad[p]] == p)
+    rson[dad[p]] = q;
+  else
+    lson[dad[p]] = q;
+  dad[p] = NIL;
 }
 
-void encode(void)  /* ˆ³k */
+void encode(void) /* åœ§ç¸® */
 {
-	int i, c, len, r, s, lastmatchlen, codeptr;
-	unsigned char code[17], mask;
-	unsigned long int incount = 0, printcount = 0, cr;
+  int i, c, len, r, s, lastmatchlen, codeptr;
+  unsigned char code[17], mask;
+  unsigned long int incount = 0, printcount = 0, cr;
 
-	init_tree();  /* –Ø‚ğ‰Šú‰» */
-	code[0] = 0;  codeptr = mask = 1;
-	s = 0;  r = N - F;
-	for (i = s; i < r; i++) text[i] = 0;  /* ƒoƒbƒtƒ@‚ğ‰Šú‰» */
-	for (len = 0; len < F ; len++) {
-		c = getc(infile);  if (c == EOF) break;
-		text[r + len] = c;
-	}
-	incount = len;  if (incount == 0) return;
-	for (i = 1; i <= F; i++) insert_node(r - i);
-	insert_node(r);
-	do {
-		if (matchlen > len) matchlen = len;
-		if (matchlen < 3) {
-			matchlen = 1;  code[0] |= mask;  code[codeptr++] = text[r];
-		} else {
-			code[codeptr++] = (unsigned char) matchpos;
-			code[codeptr++] = (unsigned char)
-				(((matchpos >> 4) & 0xf0) | (matchlen - 3));
-		}
-		if ((mask <<= 1) == 0) {
-			for (i = 0; i < codeptr; i++) putc(code[i], outfile);
-			outcount += codeptr;
-			code[0] = 0;  codeptr = mask = 1;
-		}
-		lastmatchlen = matchlen;
-		for (i = 0; i < lastmatchlen; i++) {
-			c = getc(infile);  if (c == EOF) break;
-			delete_node(s);  text[s] = c;
-			if (s < F - 1) text[s + N] = c;
-			s = (s + 1) & (N - 1);  r = (r + 1) & (N - 1);
-			insert_node(r);
-		}
-		if ((incount += i) > printcount) {
-			printf("%12lu\r", incount);  printcount += 1024;
-		}
-		while (i++ < lastmatchlen) {
-			delete_node(s);
-			s = (s + 1) & (N - 1);  r = (r + 1) & (N - 1);
-			if (--len) insert_node(r);
-		}
-	} while (len > 0);
-	if (codeptr > 1) {
-		for (i = 0; i < codeptr; i++) putc(code[i], outfile);
-		outcount += codeptr;
-	}
-	printf("In : %lu bytes\n", incount);  /* Œ‹‰Ê•ñ */
-	printf("Out: %lu bytes\n", outcount);
-	if (incount != 0) {  /* ˆ³k”ä‚ğ‹‚ß‚Ä•ñ */
-		cr = (1000 * outcount + incount / 2) / incount;
-		printf("Out/In: %lu.%03lu\n", cr / 1000, cr % 1000);
-	}
+  init_tree(); /* æœ¨ã‚’åˆæœŸåŒ– */
+  code[0] = 0;
+  codeptr = mask = 1;
+  s = 0;
+  r = N - F;
+  for (i = s; i < r; i++)
+    text[i] = 0; /* ãƒãƒƒãƒ•ã‚¡ã‚’åˆæœŸåŒ– */
+  for (len = 0; len < F; len++) {
+    c = getc(infile);
+    if (c == EOF)
+      break;
+    text[r + len] = c;
+  }
+  incount = len;
+  if (incount == 0)
+    return;
+  for (i = 1; i <= F; i++)
+    insert_node(r - i);
+  insert_node(r);
+  do {
+    if (matchlen > len)
+      matchlen = len;
+    if (matchlen < 3) {
+      matchlen = 1;
+      code[0] |= mask;
+      code[codeptr++] = text[r];
+    } else {
+      code[codeptr++] = (unsigned char)matchpos;
+      code[codeptr++] =
+          (unsigned char)(((matchpos >> 4) & 0xf0) | (matchlen - 3));
+    }
+    if ((mask <<= 1) == 0) {
+      for (i = 0; i < codeptr; i++)
+        putc(code[i], outfile);
+      outcount += codeptr;
+      code[0] = 0;
+      codeptr = mask = 1;
+    }
+    lastmatchlen = matchlen;
+    for (i = 0; i < lastmatchlen; i++) {
+      c = getc(infile);
+      if (c == EOF)
+        break;
+      delete_node(s);
+      text[s] = c;
+      if (s < F - 1)
+        text[s + N] = c;
+      s = (s + 1) & (N - 1);
+      r = (r + 1) & (N - 1);
+      insert_node(r);
+    }
+    if ((incount += i) > printcount) {
+      printf("%12lu\r", incount);
+      printcount += 1024;
+    }
+    while (i++ < lastmatchlen) {
+      delete_node(s);
+      s = (s + 1) & (N - 1);
+      r = (r + 1) & (N - 1);
+      if (--len)
+        insert_node(r);
+    }
+  } while (len > 0);
+  if (codeptr > 1) {
+    for (i = 0; i < codeptr; i++)
+      putc(code[i], outfile);
+    outcount += codeptr;
+  }
+  printf("In : %lu bytes\n", incount); /* çµæœå ±å‘Š */
+  printf("Out: %lu bytes\n", outcount);
+  if (incount != 0) { /* åœ§ç¸®æ¯”ã‚’æ±‚ã‚ã¦å ±å‘Š */
+    cr = (1000 * outcount + incount / 2) / incount;
+    printf("Out/In: %lu.%03lu\n", cr / 1000, cr % 1000);
+  }
 }
 
-void decode(unsigned long int size)  /* •œŒ³ */
+void decode(unsigned long int size) /* å¾©å…ƒ */
 {
-	int i, j, k, r, c;
-	unsigned int flags;
+  int i, j, k, r, c;
+  unsigned int flags;
 
-	for (i = 0; i < N - F; i++) text[i] = 0;
-	r = N - F;  flags = 0;
-	for ( ; ; ) {
-		if (((flags >>= 1) & 256) == 0) {
-			if ((c = getc(infile)) == EOF) break;
-			flags = c | 0xff00;
-		}
-		if (flags & 1) {
-			if ((c = getc(infile)) == EOF) break;
-			putc(c, outfile);  text[r++] = c;  r &= (N - 1);
-		} else {
-			if ((i = getc(infile)) == EOF) break;
-			if ((j = getc(infile)) == EOF) break;
-			i |= ((j & 0xf0) << 4);  j = (j & 0x0f) + 2;
-			for (k = 0; k <= j; k++) {
-				c = text[(i + k) & (N - 1)];  putc(c, outfile);
-				text[r++] = c;  r &= (N - 1);
-			}
-		}
-	}
-	printf("%12lu\n", size);
+  for (i = 0; i < N - F; i++)
+    text[i] = 0;
+  r = N - F;
+  flags = 0;
+  for (;;) {
+    if (((flags >>= 1) & 256) == 0) {
+      if ((c = getc(infile)) == EOF)
+        break;
+      flags = c | 0xff00;
+    }
+    if (flags & 1) {
+      if ((c = getc(infile)) == EOF)
+        break;
+      putc(c, outfile);
+      text[r++] = c;
+      r &= (N - 1);
+    } else {
+      if ((i = getc(infile)) == EOF)
+        break;
+      if ((j = getc(infile)) == EOF)
+        break;
+      i |= ((j & 0xf0) << 4);
+      j = (j & 0x0f) + 2;
+      for (k = 0; k <= j; k++) {
+        c = text[(i + k) & (N - 1)];
+        putc(c, outfile);
+        text[r++] = c;
+        r &= (N - 1);
+      }
+    }
+  }
+  printf("%12lu\n", size);
 }
 
-int main(int argc, char *argv[])
-{
-	int c;
-	unsigned long int size;  /* Œ³‚ÌƒoƒCƒg” */
+int main(int argc, char *argv[]) {
+  int c;
+  unsigned long int size; /* å…ƒã®ãƒã‚¤ãƒˆæ•° */
 
-	if (argc != 4 || ((c = *argv[1]) != 'E' && c != 'e'
-	                            && c != 'D' && c != 'd'))
-		error("g—p–@‚Í–{•¶‚ğQÆ‚µ‚Ä‚­‚¾‚³‚¢");
-	if ((infile  = fopen(argv[2], "rb")) == NULL)
-		error("“ü—Íƒtƒ@ƒCƒ‹‚ªŠJ‚«‚Ü‚¹‚ñ");
-	if ((outfile = fopen(argv[3], "wb")) == NULL)
-		error("o—Íƒtƒ@ƒCƒ‹‚ªŠJ‚«‚Ü‚¹‚ñ");
-	if (c == 'E' || c == 'e') {
-		fseek(infile, 0L, SEEK_END);  /* infile ‚Ì––”ö‚ğ’T‚· */
-		size = ftell(infile);     /* infile ‚ÌƒoƒCƒg” */
-		fwrite(&size, sizeof size, 1, outfile);
-		rewind(infile);
-		encode();  /* ˆ³k */
-	} else {
-		fread(&size, sizeof size, 1, infile);  /* Œ³‚ÌƒoƒCƒg” */
-		decode(size);  /* •œŒ³ */
-	}
-	fclose(infile);  fclose(outfile);
-	return EXIT_SUCCESS;
+  if (argc != 4 || ((c = *argv[1]) != 'E' && c != 'e' && c != 'D' && c != 'd'))
+    error("ä½¿ç”¨æ³•ã¯æœ¬æ–‡ã‚’å‚ç…§ã—ã¦ãã ã•ã„");
+  if ((infile = fopen(argv[2], "rb")) == NULL)
+    error("å…¥åŠ›ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ãã¾ã›ã‚“");
+  if ((outfile = fopen(argv[3], "wb")) == NULL)
+    error("å‡ºåŠ›ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ãã¾ã›ã‚“");
+  if (c == 'E' || c == 'e') {
+    fseek(infile, 0L, SEEK_END); /* infile ã®æœ«å°¾ã‚’æ¢ã™ */
+    size = ftell(infile);        /* infile ã®ãƒã‚¤ãƒˆæ•° */
+    fwrite(&size, sizeof size, 1, outfile);
+    rewind(infile);
+    encode(); /* åœ§ç¸® */
+  } else {
+    fread(&size, sizeof size, 1, infile); /* å…ƒã®ãƒã‚¤ãƒˆæ•° */
+    decode(size);                         /* å¾©å…ƒ */
+  }
+  fclose(infile);
+  fclose(outfile);
+  return EXIT_SUCCESS;
 }

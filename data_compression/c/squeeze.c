@@ -1,230 +1,270 @@
 /***********************************************************
-	squeeze.c -- LZ–@
+        squeeze.c -- LZæ³•
 ***********************************************************/
-/* “®“I«‘–@ */
+/* å‹•çš„è¾æ›¸æ³• */
 
 #include "bitio.c"
-#define N        256    /* •¶š‚Ìí—Ş (•¶š = 0..N-1) */
-#define MAXDICT 4096    /* «‘ƒTƒCƒY 4096, 8192, ... */
-#define MAXMATCH 100    /* Å‘åˆê’v’· */
-#define NIL  MAXDICT    /* ƒm[ƒh”Ô†‚Æ‚µ‚Ä‘¶İ‚µ‚È‚¢’l */
+#define N 256        /* æ–‡å­—ã®ç¨®é¡ (æ–‡å­— = 0..N-1) */
+#define MAXDICT 4096 /* è¾æ›¸ã‚µã‚¤ã‚º 4096, 8192, ... */
+#define MAXMATCH 100 /* æœ€å¤§ä¸€è‡´é•· */
+#define NIL MAXDICT  /* ãƒãƒ¼ãƒ‰ç•ªå·ã¨ã—ã¦å­˜åœ¨ã—ãªã„å€¤ */
 
 static unsigned char character[MAXDICT];
-static int parent[MAXDICT], lchild[MAXDICT],  /* e, ¶‚Ìq */
-           rsib[MAXDICT], lsib[MAXDICT],  /* ‰E¶‚Ì‚«‚å‚¤‚¾‚¢ */
-           dictsize = N;  /* Œ»İ‚Ì«‘ƒTƒCƒY */
-static int newer[MAXDICT], older[MAXDICT];  /* ‘Ò‚¿s—ñƒ|ƒCƒ“ƒ^ */
-static int qin = NIL, qout = NIL;       /* ‘Ò‚¿s—ñ‚Ì“üŒû, oŒû */
-static int match[MAXMATCH];  /* ˆê’v•¶š—ñ */
-static int bitlen = 1;  /* Œ»İ‚Ì•„†Œê‚Ì’·‚³ */
-static int bitmax = 2;  /* 1 << bitlen */
+static int parent[MAXDICT], lchild[MAXDICT], /* è¦ª, å·¦ã®å­ */
+    rsib[MAXDICT], lsib[MAXDICT],            /* å³å·¦ã®ãã‚‡ã†ã ã„ */
+    dictsize = N;                            /* ç¾åœ¨ã®è¾æ›¸ã‚µã‚¤ã‚º */
+static int newer[MAXDICT], older[MAXDICT];   /* å¾…ã¡è¡Œåˆ—ãƒã‚¤ãƒ³ã‚¿ */
+static int qin = NIL, qout = NIL;            /* å¾…ã¡è¡Œåˆ—ã®å…¥å£, å‡ºå£ */
+static int match[MAXMATCH];                  /* ä¸€è‡´æ–‡å­—åˆ— */
+static int bitlen = 1;                       /* ç¾åœ¨ã®ç¬¦å·èªã®é•·ã• */
+static int bitmax = 2;                       /* 1 << bitlen */
 
-/* ƒm[ƒh p ‚ğ LRU ‘Ò‚¿s—ñ‚©‚çŠO‚· (size > 1; p ‚ÍÅŒã‚Å‚È‚¢) */
-void dequeue(int p)
-{
-	int n, o;
+/* ãƒãƒ¼ãƒ‰ p ã‚’ LRU å¾…ã¡è¡Œåˆ—ã‹ã‚‰å¤–ã™ (size > 1; p ã¯æœ€å¾Œã§ãªã„) */
+void dequeue(int p) {
+  int n, o;
 
-	if (p == qout) {  /* æ“ª‚Ìê‡ */
-		qout = newer[p];  older[qout] = NIL;
-	} else {
-		o = older[p];  n = newer[p];
-		newer[o] = n;  older[n] = o;
-	}
+  if (p == qout) { /* å…ˆé ­ã®å ´åˆ */
+    qout = newer[p];
+    older[qout] = NIL;
+  } else {
+    o = older[p];
+    n = newer[p];
+    newer[o] = n;
+    older[n] = o;
+  }
 }
 
-/* ƒm[ƒh p ‚ğ‘Ò‚¿s—ñ‚Ì—v‘f q ‚ÌŒã‚ë‚É‘}“ü (q ‚ª NIL ‚È‚çÅ‰‚É) */
-void enqueue(int p, int q)
-{
-	if (qin == NIL) {  /* ‘Ò‚¿s—ñ‚ª‹ó */
-		older[p] = newer[p] = NIL;  qin = qout = p;
-	} else if (q == NIL) {  /* ‘Ò‚¿s—ñ‚ÌÅ‰‚É•t‚¯‚é */
-		older[p] = NIL;  newer[p] = qout;
-		qout = older[qout] = p;
-	} else if (q == qin) {  /* ‘Ò‚¿s—ñ‚ÌÅŒã‚É•t‚¯‚é */
-		older[p] = qin;  newer[p] = NIL;
-		qin = newer[qin] = p;
-	} else {  /* ‘Ò‚¿s—ñ‚Ì“r’†‚ÉŠ„‚è“ü‚é */
-		older[p] = q;
-		newer[p] = newer[q];
-		newer[q] = older[newer[p]] = p;
-	}
+/* ãƒãƒ¼ãƒ‰ p ã‚’å¾…ã¡è¡Œåˆ—ã®è¦ç´  q ã®å¾Œã‚ã«æŒ¿å…¥ (q ãŒ NIL ãªã‚‰æœ€åˆã«) */
+void enqueue(int p, int q) {
+  if (qin == NIL) { /* å¾…ã¡è¡Œåˆ—ãŒç©º */
+    older[p] = newer[p] = NIL;
+    qin = qout = p;
+  } else if (q == NIL) { /* å¾…ã¡è¡Œåˆ—ã®æœ€åˆã«ä»˜ã‘ã‚‹ */
+    older[p] = NIL;
+    newer[p] = qout;
+    qout = older[qout] = p;
+  } else if (q == qin) { /* å¾…ã¡è¡Œåˆ—ã®æœ€å¾Œã«ä»˜ã‘ã‚‹ */
+    older[p] = qin;
+    newer[p] = NIL;
+    qin = newer[qin] = p;
+  } else { /* å¾…ã¡è¡Œåˆ—ã®é€”ä¸­ã«å‰²ã‚Šå…¥ã‚‹ */
+    older[p] = q;
+    newer[p] = newer[q];
+    newer[q] = older[newer[p]] = p;
+  }
 }
 
-/* ƒm[ƒh p ‚Ì•¶š c ‚É“–‚½‚éq‚ğ•Ô‚· (‚È‚¯‚ê‚Î NIL) */
-int child(int p, int c)
-{
-	p = lchild[p];
-	while (p != NIL && c != character[p]) p = rsib[p];
-	return p;
+/* ãƒãƒ¼ãƒ‰ p ã®æ–‡å­— c ã«å½“ãŸã‚‹å­ã‚’è¿”ã™ (ãªã‘ã‚Œã° NIL) */
+int child(int p, int c) {
+  p = lchild[p];
+  while (p != NIL && c != character[p])
+    p = rsib[p];
+  return p;
 }
 
-/* eƒm[ƒh parp ‚Ì•¶š c ‚É“–‚½‚éq‚Æ‚µ‚Ä—tƒm[ƒh p ‚ğ‘}“ü */
-void addleaf(int parp, int p, int c)
-{
-	int q;
+/* è¦ªãƒãƒ¼ãƒ‰ parp ã®æ–‡å­— c ã«å½“ãŸã‚‹å­ã¨ã—ã¦è‘‰ãƒãƒ¼ãƒ‰ p ã‚’æŒ¿å…¥ */
+void addleaf(int parp, int p, int c) {
+  int q;
 
-	character[p] = c;
-	parent[p] = parp;
-	lchild[p] = lsib[p] = NIL;
-	q = lchild[parp];  rsib[p] = q;
-	if (q != NIL) lsib[q] = p;
-	lchild[parp] = p;
+  character[p] = c;
+  parent[p] = parp;
+  lchild[p] = lsib[p] = NIL;
+  q = lchild[parp];
+  rsib[p] = q;
+  if (q != NIL)
+    lsib[q] = p;
+  lchild[parp] = p;
 }
 
-/* —tƒm[ƒh p ‚ğíœ */
-void deleteleaf(int p)
-{
-	int left, right;
+/* è‘‰ãƒãƒ¼ãƒ‰ p ã‚’å‰Šé™¤ */
+void deleteleaf(int p) {
+  int left, right;
 
-	left = lsib[p];  right = rsib[p];
-	if (left != NIL) rsib[left] = right;
-	else      lchild[parent[p]] = right;
-	if (right != NIL) lsib[right] = left;
+  left = lsib[p];
+  right = rsib[p];
+  if (left != NIL)
+    rsib[left] = right;
+  else
+    lchild[parent[p]] = right;
+  if (right != NIL)
+    lsib[right] = left;
 }
 
-/* «‘–Ø‚Ì‰Šú‰» */
-void init_tree(void)
-{
-	int i;
+/* è¾æ›¸æœ¨ã®åˆæœŸåŒ– */
+void init_tree(void) {
+  int i;
 
-	for (i = 0; i < N; i++) {
-		character[i] = i;
-		parent[i] = lchild[i] = lsib[i] = rsib[i] = NIL;
-	}
+  for (i = 0; i < N; i++) {
+    character[i] = i;
+    parent[i] = lchild[i] = lsib[i] = rsib[i] = NIL;
+  }
 }
 
-/* –Ø‚ÌXV */
-void update(int *match, int curlen, int prevp, int prevlen)
-{
-	int p, c, i;
+/* æœ¨ã®æ›´æ–° */
+void update(int *match, int curlen, int prevp, int prevlen) {
+  int p, c, i;
 
-	if (prevp == NIL) return;
-	for (i = 0; i < curlen; i++) {
-		if (++prevlen > MAXMATCH) return;
-		c = match[i];
-		if ((p = child(prevp, c)) == NIL) {
-			if (dictsize < MAXDICT) p = dictsize++;  /* dictsize < NIL */
-			else {
-				if (prevp == qout) return;
-				p = qout;  dequeue(p);  deleteleaf(p);
-			}
-			addleaf(prevp, p, c);
-			if (prevp < N) enqueue(p, qin);
-			else           enqueue(p, older[prevp]);
-		}
-		prevp = p;
-	}
+  if (prevp == NIL)
+    return;
+  for (i = 0; i < curlen; i++) {
+    if (++prevlen > MAXMATCH)
+      return;
+    c = match[i];
+    if ((p = child(prevp, c)) == NIL) {
+      if (dictsize < MAXDICT)
+        p = dictsize++; /* dictsize < NIL */
+      else {
+        if (prevp == qout)
+          return;
+        p = qout;
+        dequeue(p);
+        deleteleaf(p);
+      }
+      addleaf(prevp, p, c);
+      if (prevp < N)
+        enqueue(p, qin);
+      else
+        enqueue(p, older[prevp]);
+    }
+    prevp = p;
+  }
 }
 
-void output(int p)
-{
-	if (p < N) {
-		putbit(0);  putbits(8, p);
-	} else {
-		while ((dictsize - N) >= bitmax) {
-			bitlen++;  bitmax <<= 1;
-		}
-		putbit(1);  putbits(bitlen, p - N);
-	}
+void output(int p) {
+  if (p < N) {
+    putbit(0);
+    putbits(8, p);
+  } else {
+    while ((dictsize - N) >= bitmax) {
+      bitlen++;
+      bitmax <<= 1;
+    }
+    putbit(1);
+    putbits(bitlen, p - N);
+  }
 }
 
-int	input(void)
-{
-	int i;
+int input(void) {
+  int i;
 
-	if ((dictsize - N) >= bitmax) {
-		bitmax <<= 1;  bitlen++;
-	}
-	if ((i = getbit()) == EOF) return EOF;
-	if (i == 0) return getbits(8);
-	if ((i = getbits(bitlen)) == EOF) return EOF;
-	return i + N;
+  if ((dictsize - N) >= bitmax) {
+    bitmax <<= 1;
+    bitlen++;
+  }
+  if ((i = getbit()) == EOF)
+    return EOF;
+  if (i == 0)
+    return getbits(8);
+  if ((i = getbits(bitlen)) == EOF)
+    return EOF;
+  return i + N;
 }
 
-void encode(void)  /* ˆ³k */
+void encode(void) /* åœ§ç¸® */
 {
-	int p, c, q, curptr, curlen, prevptr, prevlen;
-	unsigned long int incount, printcount, cr;
+  int p, c, q, curptr, curlen, prevptr, prevlen;
+  unsigned long int incount, printcount, cr;
 
-	init_tree();  curptr = NIL;  curlen = 0;
-	incount = printcount = 0;  c = getc(infile);
-	while (c != EOF) {
-		prevptr = curptr;  prevlen = curlen;  curlen = 0;
-		q = qin;  p = c;
-		do {
-			if (p >= N)
-				if (p == q)	q = older[p];
-				else {  dequeue(p);  enqueue(p, q);  }
-			match[curlen++] = c;  curptr = p;
-			c = getc(infile);  p = child(curptr, c);
-		} while (p != NIL);
-		output(curptr);
-		update(match, curlen, prevptr, prevlen);
-		if ((incount += curlen) > printcount) {
-			printf("%12lu\r", incount);  printcount += 1024;
-		}
-	}
-	putbits(7, 0);  /* ƒrƒbƒgƒoƒbƒtƒ@‚ğƒtƒ‰ƒbƒVƒ… */
-	printf("In : %lu bytes\n", incount);
-	printf("Out: %lu bytes\n", outcount);
-	if (incount != 0) {
-		cr = (1000 * outcount + incount / 2) / incount;
-		printf("Out/In: %1lu.%03lu\n", cr / 1000, cr % 1000);
-	}
+  init_tree();
+  curptr = NIL;
+  curlen = 0;
+  incount = printcount = 0;
+  c = getc(infile);
+  while (c != EOF) {
+    prevptr = curptr;
+    prevlen = curlen;
+    curlen = 0;
+    q = qin;
+    p = c;
+    do {
+      if (p >= N)
+        if (p == q)
+          q = older[p];
+        else {
+          dequeue(p);
+          enqueue(p, q);
+        }
+      match[curlen++] = c;
+      curptr = p;
+      c = getc(infile);
+      p = child(curptr, c);
+    } while (p != NIL);
+    output(curptr);
+    update(match, curlen, prevptr, prevlen);
+    if ((incount += curlen) > printcount) {
+      printf("%12lu\r", incount);
+      printcount += 1024;
+    }
+  }
+  putbits(7, 0); /* ãƒ“ãƒƒãƒˆãƒãƒƒãƒ•ã‚¡ã‚’ãƒ•ãƒ©ãƒƒã‚·ãƒ¥ */
+  printf("In : %lu bytes\n", incount);
+  printf("Out: %lu bytes\n", outcount);
+  if (incount != 0) {
+    cr = (1000 * outcount + incount / 2) / incount;
+    printf("Out/In: %1lu.%03lu\n", cr / 1000, cr % 1000);
+  }
 }
 
-void decode(unsigned long int size)  /* •œŒ³ */
+void decode(unsigned long int size) /* å¾©å…ƒ */
 {
-	int p, i, curptr, curlen, prevptr, prevlen, *base;
-	unsigned long int count, printcount;
+  int p, i, curptr, curlen, prevptr, prevlen, *base;
+  unsigned long int count, printcount;
 
-	init_tree();
-	curptr = NIL;  curlen = 0;  count = printcount = 0;
-	while (count < size) {
-		if ((p = input()) == EOF) error("“Ç‚ß‚Ü‚¹‚ñ");
-		if (p >= dictsize) error("“ü—ÍƒGƒ‰[");
-		prevptr = curptr;  prevlen = curlen;
-		curptr = p;  curlen = 0;
-		while (p != NIL) {
-			if (p >= N && p != qin) {
-				dequeue(p);  enqueue(p, qin);
-			}
-			curlen++;
-			match[MAXMATCH - curlen] = character[p];
-			p = parent[p];
-		}
-		base = &match[MAXMATCH - curlen];
-		for (i = 0; i < curlen ; i++) putc(base[i], outfile);
-		update(base, curlen, prevptr, prevlen);
-		if ((count += curlen) > printcount) {
-			printf("%12lu\r", count);  printcount += 1024;
-		}
-	}
-	printf("%12lu\n", count);
+  init_tree();
+  curptr = NIL;
+  curlen = 0;
+  count = printcount = 0;
+  while (count < size) {
+    if ((p = input()) == EOF)
+      error("èª­ã‚ã¾ã›ã‚“");
+    if (p >= dictsize)
+      error("å…¥åŠ›ã‚¨ãƒ©ãƒ¼");
+    prevptr = curptr;
+    prevlen = curlen;
+    curptr = p;
+    curlen = 0;
+    while (p != NIL) {
+      if (p >= N && p != qin) {
+        dequeue(p);
+        enqueue(p, qin);
+      }
+      curlen++;
+      match[MAXMATCH - curlen] = character[p];
+      p = parent[p];
+    }
+    base = &match[MAXMATCH - curlen];
+    for (i = 0; i < curlen; i++)
+      putc(base[i], outfile);
+    update(base, curlen, prevptr, prevlen);
+    if ((count += curlen) > printcount) {
+      printf("%12lu\r", count);
+      printcount += 1024;
+    }
+  }
+  printf("%12lu\n", count);
 }
 
-int main(int argc, char *argv[])
-{
-	int c;
-	unsigned long int size;  /* Œ³‚ÌƒoƒCƒg” */
+int main(int argc, char *argv[]) {
+  int c;
+  unsigned long int size; /* å…ƒã®ãƒã‚¤ãƒˆæ•° */
 
-	if (argc != 4 || ((c = *argv[1]) != 'E' && c != 'e'
-	                            && c != 'D' && c != 'd'))
-		error("g—p–@‚Í–{•¶‚ğQÆ‚µ‚Ä‚­‚¾‚³‚¢");
-	if ((infile  = fopen(argv[2], "rb")) == NULL)
-		error("“ü—Íƒtƒ@ƒCƒ‹‚ªŠJ‚«‚Ü‚¹‚ñ");
-	if ((outfile = fopen(argv[3], "wb")) == NULL)
-		error("o—Íƒtƒ@ƒCƒ‹‚ªŠJ‚«‚Ü‚¹‚ñ");
-	if (c == 'E' || c == 'e') {
-		fseek(infile, 0L, SEEK_END);  /* infile ‚Ì––”ö‚ğ’T‚· */
-		size = ftell(infile);     /* infile ‚ÌƒoƒCƒg” */
-		fwrite(&size, sizeof size, 1, outfile);
-		rewind(infile);
-		encode();  /* ˆ³k */
-	} else {
-		fread(&size, sizeof size, 1, infile);  /* Œ³‚ÌƒoƒCƒg” */
-		decode(size);  /* •œŒ³ */
-	}
-	fclose(infile);  fclose(outfile);
-	return EXIT_SUCCESS;
+  if (argc != 4 || ((c = *argv[1]) != 'E' && c != 'e' && c != 'D' && c != 'd'))
+    error("ä½¿ç”¨æ³•ã¯æœ¬æ–‡ã‚’å‚ç…§ã—ã¦ãã ã•ã„");
+  if ((infile = fopen(argv[2], "rb")) == NULL)
+    error("å…¥åŠ›ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ãã¾ã›ã‚“");
+  if ((outfile = fopen(argv[3], "wb")) == NULL)
+    error("å‡ºåŠ›ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ãã¾ã›ã‚“");
+  if (c == 'E' || c == 'e') {
+    fseek(infile, 0L, SEEK_END); /* infile ã®æœ«å°¾ã‚’æ¢ã™ */
+    size = ftell(infile);        /* infile ã®ãƒã‚¤ãƒˆæ•° */
+    fwrite(&size, sizeof size, 1, outfile);
+    rewind(infile);
+    encode(); /* åœ§ç¸® */
+  } else {
+    fread(&size, sizeof size, 1, infile); /* å…ƒã®ãƒã‚¤ãƒˆæ•° */
+    decode(size);                         /* å¾©å…ƒ */
+  }
+  fclose(infile);
+  fclose(outfile);
+  return EXIT_SUCCESS;
 }
