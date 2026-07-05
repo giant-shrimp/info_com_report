@@ -11,10 +11,12 @@ BASE_DIR = Path(__file__).resolve().parent
 C_DIR = BASE_DIR / "c"
 PY_DIR = BASE_DIR / "python"
 TEXT_DIR = BASE_DIR / "textdata"
+TEST_DIR = BASE_DIR / "textdata_test"
 OUT_DIR = BASE_DIR / "benchmark_output"
 
 METHODS = ["arith", "huffman", "slide", "squeeze"]
-TEXT_FILES = sorted([f for f in TEXT_DIR.iterdir() if f.is_file()])
+TEXT_FILES = sorted([f for f in TEXT_DIR.glob("*.txt") if f.is_file()])
+TEST_FILES = sorted([f for f in TEST_DIR.glob("*.txt") if f.is_file()])
 
 def compile_c_tools():
     print("Compiling C tools...")
@@ -133,6 +135,29 @@ def run_benchmark(bwt_impl, comp_impl):
             
             print(f"{txt_file.name:<16} | {method:<10} | {'Yes':<5} | {orig_size:<10} | {comp_size:<10} | {ratio:.4f}  | {tot_enc_time:<12.4f} | {tot_dec_time:<12.4f}")
             
+    # Boundary Tests (Silence output, just assert roundtrip)
+    print("\nRunning boundary tests...")
+    for txt_file in TEST_FILES:
+        for method in METHODS:
+            # No BWT
+            enc_file = OUT_DIR / f"{txt_file.name}.{method}.enc"
+            dec_file = OUT_DIR / f"{txt_file.name}.{method}.dec"
+            run_cmd(get_cmd(comp_impl, method, "e", txt_file, enc_file))
+            run_cmd(get_cmd(comp_impl, method, "d", enc_file, dec_file))
+            check_roundtrip(txt_file, dec_file)
+            
+            # With BWT
+            bwt_file = OUT_DIR / f"{txt_file.name}.bwt"
+            run_cmd(get_cmd(bwt_impl, "bwt", "e", txt_file, bwt_file))
+            enc_file = OUT_DIR / f"{txt_file.name}.bwt.{method}.enc"
+            dec_file = OUT_DIR / f"{txt_file.name}.bwt.{method}.dec"
+            final_dec = OUT_DIR / f"{txt_file.name}.bwt.{method}.final"
+            run_cmd(get_cmd(comp_impl, method, "e", bwt_file, enc_file))
+            run_cmd(get_cmd(comp_impl, method, "d", enc_file, dec_file))
+            run_cmd(get_cmd(bwt_impl, "bwt", "d", dec_file, final_dec))
+            check_roundtrip(txt_file, final_dec)
+    print("Boundary tests passed successfully!")
+
     # Write CSV
     csv_path = BASE_DIR / "benchmark_results.csv"
     with open(csv_path, "w", newline="") as f:

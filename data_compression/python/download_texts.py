@@ -10,8 +10,9 @@ files = {
     'pride.txt': 'https://www.gutenberg.org/cache/epub/1342/pg1342.txt'
 }
 
-# The script is located in the textdata directory, so we save files in the same directory.
-out_dir = os.path.dirname(os.path.abspath(__file__))
+# The script is located in the python directory, so we save files in ../textdata
+out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'textdata')
+os.makedirs(out_dir, exist_ok=True)
 
 for filename, url in files.items():
     print(f"Downloading {filename}...")
