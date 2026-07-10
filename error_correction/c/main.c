@@ -19,7 +19,7 @@
 
 /* ──────────── 設定 ──────────── */
 #define DEFAULT_MAX_ERRORS    15
-#define RANDOM_TRIALS         100    /* e>=3 でのランダム試行回数 */
+#define RANDOM_TRIALS         10000  /* e>=4 でのランダム試行回数 */
 #define ZERO_STREAK_LIMIT     3      /* 成功率0が連続したら打ち切り */
 
 /* ──────────── 全列挙で誤り訂正を評価 (e=1, e=2) ──────────── */
@@ -67,7 +67,7 @@ static void evaluate_enumerate(
     const Trellis *trellis, int n_delay,
     int num_errors, int *out_success, int *out_total)
 {
-    int positions[16];  /* num_errors <= 2 を想定 */
+    int positions[16];  /* num_errors <= 3 を想定 */
     enum_success_count = 0;
     enum_total_count = 0;
 
@@ -141,11 +141,12 @@ int main(int argc, char *argv[])
     }
 
     /* ── 符号器の定義 ── */
-    ConvEncoder encoders[3];
+    ConvEncoder encoders[4];
     conv_encoder_init(&encoders[0], "G1", 1, 01, 03);    /* (1, 3)_8 */
     conv_encoder_init(&encoders[1], "G2", 2, 05, 07);    /* (5, 7)_8 */
     conv_encoder_init(&encoders[2], "G3", 3, 05, 013);   /* (5, 13)_8 */
-    int num_encoders = 3;
+    conv_encoder_init(&encoders[3], "G4_opt", 3, 015, 017); /* (15, 17)_8 最適符号 */
+    int num_encoders = 4;
 
     /* ── CSV出力ファイル ── */
     FILE *csv = fopen("../output/results.csv", "w");
@@ -200,7 +201,7 @@ int main(int argc, char *argv[])
         for (int e = 1; e <= max_errors && e <= code_len; e++) {
             int success = 0, total = 0;
 
-            if (e <= 2) {
+            if (e <= 3) {
                 /* 全パターン列挙 */
                 evaluate_enumerate(codeword, code_len, info_bits, INFO_BITS,
                                    &trellis, m, e, &success, &total);

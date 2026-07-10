@@ -49,8 +49,8 @@ def plot_results(data, output_path='../output/error_correction_results.png'):
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    colors = {'G1': '#e74c3c', 'G2': '#3498db', 'G3': '#2ecc71'}
-    markers = {'G1': 'o', 'G2': 's', 'G3': '^'}
+    colors = {'G1': '#e74c3c', 'G2': '#3498db', 'G3': '#2ecc71', 'G4_opt': '#9b59b6'}
+    markers = {'G1': 'o', 'G2': 's', 'G3': '^', 'G4_opt': 'D'}
 
     for name in sorted(data.keys()):
         d = data[name]
