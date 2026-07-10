@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
     rewind(infile);
     encode(); /* 圧縮 */
   } else {
-    fread(&size, sizeof size, 1, infile); /* 元のバイト数 */
+    if (fread(&size, sizeof size, 1, infile) < 1) error("ファイルサイズの読み込みに失敗しました"); /* 元のバイト数 */
     decode(size);                         /* 復元 */
   }
   fclose(infile);
