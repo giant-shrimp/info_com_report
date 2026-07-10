@@ -9,3 +9,9 @@ data_compression/c/output/
 data_compression/python/output/
 data_compression/benchmark_output/
 data_compression/benchmark_results.csv
+
+# error_correction ignores
+error_correction/c/*.o
+error_correction/c/error_eval
+error_correction/python/**/__pycache__/
+error_correction/output/
